@@ -1,0 +1,9 @@
+# Needed for local development
+polars
+maturin
+ruff
+pytest
+mypy
+codetiming
+ipykernel
+tqdm

@@ -1,0 +1,24 @@
+[package]
+name = "tdigest-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tdigest_plugin"
+crate-type= ["cdylib"]
+
+[dependencies]
+
+serde = { version = "1", features = ["derive"] }
+polars = { version = "0.40.0", features=["dtype-struct", "fmt"], default-features = false }
+tdigest = { version = "0.2.3", features=["use_serde"] }
+ordered-float = { version = "4.2.0", features=["serde"] }
+polars-arrow = "0.40.0"
+serde_json = "1.0.117"
+polars-io = { version = "0.40.0", features=["json"] }
+pyo3 = { version = "0.21.2", features = ["extension-module", "abi3-py38"] }
+pyo3-polars = { version = "0.14.0", features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+jemallocator = { version = "0.5", features = ["disable_initial_exec_tls"] }
+
