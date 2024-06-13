@@ -1,8 +1,8 @@
-from decimal import InvalidOperation
 
 import polars as pl
 import pytest
-from polars import Float32, Float64, Int16, Int32, Utf8, col
+from polars import Float32, Int32, Utf8, col
+
 from tdigest_plugin import estimate_median, estimate_quantile, tdigest
 
 df_int = pl.DataFrame(
@@ -102,7 +102,7 @@ def test_estimate_quantile_f32():
 def test_estimate_quantile_utf8():
 
     with pytest.raises(pl.exceptions.ComputeError):
-        df_median = (
+        (
             df_float.with_columns(col("values").cast(Utf8))
             .group_by("group")
             .agg(
