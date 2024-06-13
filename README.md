@@ -19,3 +19,14 @@ Install [Rust](https://rustup.rs/).
 ## Build
 
 In order to build the package, please run `maturin develop`. If you want to test performance, run `maturin develop --release`. 
+
+## Commit / Release
+
+Before committing and pushing your work, make sure to run
+
+```
+cargo fmt --all && cargo clippy --all-features
+python -m ruff check . --fix --exit-non-zero-on-fix
+```
+
+and resolve any errors.
