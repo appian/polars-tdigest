@@ -1461,7 +1461,7 @@ dependencies = [
 
 [[package]]
 name = "tdigest-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jemallocator",
  "ordered-float 4.2.0",
