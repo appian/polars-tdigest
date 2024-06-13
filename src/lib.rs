@@ -8,11 +8,10 @@ use jemallocator::Jemalloc;
 #[cfg(target_os = "linux")]
 static ALLOC: Jemalloc = Jemalloc;
 
-use pyo3::types::PyModule;
-use pyo3::{pymodule, PyResult, Python};
+use pyo3::{pymodule, types::PyModule, Bound, PyResult};
 
 #[pymodule]
-fn tdigest_plugin(_py: Python, m: &PyModule) -> PyResult<()> {
+fn tdigest_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

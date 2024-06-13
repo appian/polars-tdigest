@@ -8,7 +8,6 @@ use polars_core::utils::arrow::array::{Int32Array, Int64Array};
 use polars_core::POOL;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
-use serde_json;
 use std::fmt::Write;
 use std::io::BufWriter;
 use std::io::Cursor;
@@ -116,8 +115,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .map(|chunk| {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
-                        let val_vec: Vec<f64> =
-                            array.values().iter().filter_map(|v| Some(*v)).collect();
+                        let val_vec: Vec<f64> = array.values().iter().copied().collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -133,11 +131,8 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .map(|chunk| {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Float32Array>().unwrap();
-                        let val_vec: Vec<f64> = array
-                            .values()
-                            .iter()
-                            .filter_map(|v| Some(*v as f64))
-                            .collect();
+                        let val_vec: Vec<f64> =
+                            array.values().iter().map(|v| (*v as f64)).collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -153,11 +148,8 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .map(|chunk| {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
-                        let val_vec: Vec<f64> = array
-                            .values()
-                            .iter()
-                            .filter_map(|v| Some(*v as f64))
-                            .collect();
+                        let val_vec: Vec<f64> =
+                            array.values().iter().map(|v| (*v as f64)).collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -173,11 +165,8 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .map(|chunk| {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Int32Array>().unwrap();
-                        let val_vec: Vec<f64> = array
-                            .values()
-                            .iter()
-                            .filter_map(|v| Some(*v as f64))
-                            .collect();
+                        let val_vec: Vec<f64> =
+                            array.values().iter().map(|v| (*v as f64)).collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -204,18 +193,17 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
 
 #[polars_expr(output_type_func=tdigest_output)]
 fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
-    let series: Series;
-    let supported_dtypes = vec![
+    let supported_dtypes = &[
         DataType::Float64,
         DataType::Float32,
         DataType::Int64,
         DataType::Int32,
     ];
-    if supported_dtypes.contains(inputs[0].dtype()) {
-        series = inputs[0].cast(&DataType::Float64)?;
+    let series: Series = if supported_dtypes.contains(inputs[0].dtype()) {
+        inputs[0].cast(&DataType::Float64)?
     } else {
         polars_bail!(InvalidOperation: "only supported for numerical types");
-    }
+    };
     let values = series.f64()?;
 
     let chunks: Vec<TDigest> = POOL.install(|| {
@@ -225,8 +213,7 @@ fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
             .map(|chunk| {
                 let t = TDigest::new_with_size(100);
                 let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
-                let val_vec: Vec<f64> = array.values().iter().filter_map(|v| Some(*v)).collect();
-                t.merge_unsorted(val_vec.to_owned())
+                t.merge_unsorted(array.values().to_vec())
             })
             .collect::<Vec<TDigest>>()
     });
