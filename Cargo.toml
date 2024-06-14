@@ -1,10 +1,10 @@
 [package]
-name = "tdigest-plugin"
-version = "0.1.1"
+name = "polars-tdigest"
+version = "0.1.2"
 edition = "2021"
 
 [lib]
-name = "tdigest_plugin"
+name = "polars_tdigest"
 crate-type= ["cdylib"]
 
 [dependencies]

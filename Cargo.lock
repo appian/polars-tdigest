@@ -946,6 +946,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "polars-tdigest"
+version = "0.1.2"
+dependencies = [
+ "jemallocator",
+ "ordered-float 4.2.0",
+ "polars",
+ "polars-arrow",
+ "polars-io",
+ "pyo3",
+ "pyo3-polars",
+ "serde",
+ "serde_json",
+ "tdigest",
+]
+
+[[package]]
 name = "polars-utils"
 version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1457,22 +1473,6 @@ checksum = "c45d225a08ebccf0e0c7d46db4066ea8ab05b29d3750ecc1a04f1675978bf3c8"
 dependencies = [
  "ordered-float 2.10.1",
  "serde",
-]
-
-[[package]]
-name = "tdigest-plugin"
-version = "0.1.1"
-dependencies = [
- "jemallocator",
- "ordered-float 4.2.0",
- "polars",
- "polars-arrow",
- "polars-io",
- "pyo3",
- "pyo3-polars",
- "serde",
- "serde_json",
- "tdigest",
 ]
 
 [[package]]

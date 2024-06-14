@@ -1,9 +1,8 @@
-
 import polars as pl
 import pytest
 from polars import Float32, Int32, Utf8, col
 
-from tdigest_plugin import estimate_median, estimate_quantile, tdigest
+from polars_tdigest import estimate_median, estimate_quantile, tdigest
 
 df_int = pl.DataFrame(
     {

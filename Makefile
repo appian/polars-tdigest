@@ -15,8 +15,8 @@ install-release: .venv
 pre-commit: .venv
 	cargo fmt --all && cargo clippy --all-features
 	.venv/bin/python -m ruff check . --fix --exit-non-zero-on-fix
-	.venv/bin/python -m ruff format tdigest_plugin tests
-	.venv/bin/mypy tdigest_plugin tests
+	.venv/bin/python -m ruff format polars_tdigest tests
+	.venv/bin/mypy polars_tdigest tests
 
 test: .venv
 	.venv/bin/python -m pytest tests
