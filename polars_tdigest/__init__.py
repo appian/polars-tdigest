@@ -6,17 +6,11 @@ from typing import TYPE_CHECKING
 import polars as pl
 from polars.plugins import register_plugin_function
 
-from polars_tdigest.utils import parse_version
-
 if TYPE_CHECKING:
     from polars.type_aliases import IntoExpr
 
-if parse_version(pl.__version__) < parse_version("0.20.16"):
-    from polars.utils.udfs import _get_shared_lib_location
 
-    lib: str | Path = _get_shared_lib_location(__file__)
-else:
-    lib = Path(__file__).parent
+lib = Path(__file__).parent
 
 
 def estimate_median(expr: IntoExpr) -> pl.Expr:
