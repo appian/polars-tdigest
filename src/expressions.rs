@@ -263,3 +263,34 @@ fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<S
     let ans = tdigest.estimate_quantile(kwargs.quantile);
     Ok(Series::new("", vec![ans]))
 }
+
+#[polars_expr(output_type_func=tdigest_output)]
+fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
+    let mut df = inputs[0].clone().into_frame();
+    let series = &inputs[0];
+    df.set_column_names(vec!["tdigest"].as_slice()).unwrap();
+    let mut buf = BufWriter::new(Vec::new());
+    let _json = JsonWriter::new(&mut buf)
+        .with_json_format(JsonFormat::Json)
+        .finish(&mut df);
+
+    let bytes = buf.into_inner().unwrap();
+    let json_str = String::from_utf8(bytes).unwrap();
+    let tdigest_json: Vec<TDigestCol> =
+        serde_json::from_str(&json_str).expect("Failed to parse the tigest JSON string");
+
+    let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
+    let tdigest = TDigest::merge_digests(tdigests);
+
+    let td_json = serde_json::to_string(&tdigest).unwrap();
+
+    let file = Cursor::new(&td_json);
+    let df = JsonReader::new(file)
+        .with_json_format(JsonFormat::JsonLines)
+        .infer_schema_len(Some(3))
+        .with_batch_size(NonZeroUsize::new(3).unwrap())
+        .finish()
+        .unwrap();
+
+    Ok(df.into_struct(series.name()).into_series())
+}
