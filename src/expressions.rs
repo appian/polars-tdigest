@@ -176,9 +176,13 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
         _ => polars_bail!(InvalidOperation: "only supported for numerical types"),
     };
 
-    let t_global = TDigest::merge_digests(chunks);
+    let mut td_global = TDigest::merge_digests(chunks);
+    if td_global.is_empty() {
+        // Default value for TDigest contains NaNs that cause problems during serialization/deserailization
+        td_global = TDigest::new(Vec::new(), 100.0, 0.0, 0.0, 0.0, 0)
+    }
 
-    let td_json = serde_json::to_string(&t_global).unwrap();
+    let td_json = serde_json::to_string(&td_global).unwrap();
 
     let file = Cursor::new(&td_json);
     let df = JsonReader::new(file)
