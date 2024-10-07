@@ -20,6 +20,20 @@ Install [Rust](https://rustup.rs/).
 
 In order to build the package, please run `maturin develop`. If you want to test performance, run `maturin develop --release`. 
 
+## Developing using cargo
+
+Cargo commands (e.g. `cargo build`, `cargo test`) don't work out of the box. 
+In order to use cargo instead of maturin for local development, remove `extension-module` from `cargo.toml`: 
+replace 
+```
+pyo3 = { version = "0.21.2", features = ["extension-module", "abi3-py38"] }
+```
+with 
+
+```
+pyo3 = { version = "0.21.2", features = ["abi3-py38"] }
+```
+
 ## Commit / Release
 
 Before committing and pushing your work, make sure to run
