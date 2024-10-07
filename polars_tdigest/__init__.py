@@ -52,3 +52,12 @@ def tdigest_cast(expr: IntoExpr) -> pl.Expr:
         is_elementwise=False,
         returns_scalar=True,
     )
+
+def merge_tdigests(expr: IntoExpr) -> pl.Expr:
+    return register_plugin_function(
+        plugin_path=Path(__file__).parent,
+        function_name="merge_tdigests",
+        args=expr,
+        is_elementwise=False,
+        returns_scalar=True,
+    )
