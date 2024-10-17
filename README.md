@@ -8,7 +8,11 @@ For an example see the [Yellow Taxi Notebook](./tdigest_yellow_taxi.ipynb). Note
 
 ## Dev setup
 
-Setup your virtual environment with a python version `>=3.8`, e.g. use `python -m venv .env`.
+Setup your virtual environment with a python version `>=3.8`, e.g. use 
+```bash
+python -m venv .env
+source .env/bin/activate
+``` .
 Install the python dependencies used for development:
 ```bash
 python -m pip install -r requirements.txt

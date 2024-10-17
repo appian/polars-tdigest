@@ -63,7 +63,11 @@ fn estimate_median(inputs: &[Series]) -> PolarsResult<Series> {
 }
 
 fn tdigest_output(_: &[Field]) -> PolarsResult<Field> {
-    let fields = vec![
+    Ok(Field::new("tdigest", DataType::Struct(tdigest_fields())))
+}
+
+fn tdigest_fields() -> Vec<Field> {
+    vec![
         Field::new(
             "centroids",
             DataType::List(Box::new(DataType::Struct(vec![
@@ -76,9 +80,7 @@ fn tdigest_output(_: &[Field]) -> PolarsResult<Field> {
         Field::new("max", DataType::Int64),
         Field::new("count", DataType::Int64),
         Field::new("max_size", DataType::Int64),
-    ];
-
-    Ok(Field::new("tdigest", DataType::Struct(fields)))
+    ]
 }
 
 // fn tidgest_compute<T: NumericNative, PDT: PolarsDataType>(values: &ChunkedArray<PDT>) -> Vec<TDigest> {
@@ -105,6 +107,7 @@ fn tdigest_output(_: &[Field]) -> PolarsResult<Field> {
 #[polars_expr(output_type_func=tdigest_output)]
 fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
     let series = &inputs[0];
+    // TODO: pooling is not feasible on small datasets
     let chunks = match series.dtype() {
         DataType::Float64 => {
             let values = series.f64()?;
@@ -115,7 +118,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .map(|chunk| {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
-                        let val_vec: Vec<f64> = array.values().iter().copied().collect();
+                        let val_vec: Vec<f64> = array.non_null_values_iter().collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -132,7 +135,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Float32Array>().unwrap();
                         let val_vec: Vec<f64> =
-                            array.values().iter().map(|v| (*v as f64)).collect();
+                            array.non_null_values_iter().map(|v| (v as f64)).collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -149,7 +152,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
                         let val_vec: Vec<f64> =
-                            array.values().iter().map(|v| (*v as f64)).collect();
+                            array.non_null_values_iter().map(|v| (v as f64)).collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -166,7 +169,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                         let t = TDigest::new_with_size(100);
                         let array = chunk.as_any().downcast_ref::<Int32Array>().unwrap();
                         let val_vec: Vec<f64> =
-                            array.values().iter().map(|v| (*v as f64)).collect();
+                            array.non_null_values_iter().map(|v| (v as f64)).collect();
                         t.merge_unsorted(val_vec.to_owned())
                     })
                     .collect::<Vec<TDigest>>()
@@ -187,7 +190,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
     let file = Cursor::new(&td_json);
     let df = JsonReader::new(file)
         .with_json_format(JsonFormat::JsonLines)
-        .infer_schema_len(Some(3))
+        .with_schema(Arc::new(Schema::from_iter(tdigest_fields())))
         .with_batch_size(NonZeroUsize::new(3).unwrap())
         .finish()
         .unwrap();
