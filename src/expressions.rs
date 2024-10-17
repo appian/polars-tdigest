@@ -263,7 +263,7 @@ fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<S
     let bytes = buf.into_inner().unwrap();
     let json_str = String::from_utf8(bytes).unwrap();
     let tdigest_json: Vec<TDigestCol> =
-        serde_json::from_str(&json_str).expect("Failed to parse the tigest JSON string");
+        serde_json::from_str(&json_str).expect("Failed to parse the tdigest JSON string");
 
     let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
     let tdigest = TDigest::merge_digests(tdigests);
