@@ -232,7 +232,7 @@ fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
     let file = Cursor::new(&td_json);
     let df = JsonReader::new(file)
         .with_json_format(JsonFormat::JsonLines)
-        .infer_schema_len(Some(3))
+        .with_schema(Arc::new(Schema::from_iter(tdigest_fields())))
         .with_batch_size(NonZeroUsize::new(3).unwrap())
         .finish()
         .unwrap();
@@ -277,7 +277,7 @@ fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
     let file = Cursor::new(&td_json);
     let df = JsonReader::new(file)
         .with_json_format(JsonFormat::JsonLines)
-        .infer_schema_len(Some(3))
+        .with_schema(Arc::new(Schema::from_iter(tdigest_fields())))
         .with_batch_size(NonZeroUsize::new(3).unwrap())
         .finish()
         .unwrap();
