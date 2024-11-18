@@ -250,9 +250,7 @@ struct MergeTDKwargs {
     quantile: f64,
 }
 
-// TODO this should check the type of the series and also work on series of Type f64
-#[polars_expr(output_type=Float64)]
-fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<Series> {
+fn extract_tdigest_vec(inputs: &[Series]) -> Vec<TDigestCol> {
     let mut df = inputs[0].clone().into_frame();
     df.set_column_names(vec!["tdigest"].as_slice()).unwrap();
     let mut buf = BufWriter::new(Vec::new());
@@ -262,8 +260,35 @@ fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<S
 
     let bytes = buf.into_inner().unwrap();
     let json_str = String::from_utf8(bytes).unwrap();
-    let tdigest_json: Vec<TDigestCol> =
-        serde_json::from_str(&json_str).expect("Failed to parse the tdigest JSON string");
+
+    serde_json::from_str(&json_str).expect("Failed to parse the tdigest JSON string")
+}
+
+#[polars_expr(output_type_func=tdigest_output)]
+fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
+    let series = &inputs[0];
+    let tdigest_json: Vec<TDigestCol> = extract_tdigest_vec(inputs);
+
+    let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
+    let tdigest = TDigest::merge_digests(tdigests);
+
+    let td_json = serde_json::to_string(&tdigest).unwrap();
+
+    let file = Cursor::new(&td_json);
+    let df = JsonReader::new(file)
+        .with_json_format(JsonFormat::JsonLines)
+        .infer_schema_len(Some(3))
+        .with_batch_size(NonZeroUsize::new(3).unwrap())
+        .finish()
+        .unwrap();
+
+    Ok(df.into_struct(series.name()).into_series())
+}
+
+// TODO this should check the type of the series and also work on series of Type f64
+#[polars_expr(output_type=Float64)]
+fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<Series> {
+    let tdigest_json: Vec<TDigestCol> = extract_tdigest_vec(inputs);
 
     let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
     let tdigest = TDigest::merge_digests(tdigests);
