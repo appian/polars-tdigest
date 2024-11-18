@@ -267,6 +267,11 @@ fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<S
 
     let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
     let tdigest = TDigest::merge_digests(tdigests);
-    let ans = tdigest.estimate_quantile(kwargs.quantile);
-    Ok(Series::new("", vec![ans]))
+    if tdigest.is_empty() {
+        let v: &[Option<f64>] = &[None];
+        Ok(Series::new("", v))
+    } else {
+        let ans = tdigest.estimate_quantile(kwargs.quantile);
+        Ok(Series::new("", vec![ans]))
+    }
 }
