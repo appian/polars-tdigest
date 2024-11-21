@@ -8,7 +8,6 @@ use polars_core::utils::arrow::array::{Int32Array, Int64Array};
 use polars_core::POOL;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
-use std::fmt::Write;
 use std::io::BufWriter;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
