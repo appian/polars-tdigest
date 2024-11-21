@@ -78,7 +78,7 @@ fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Float32Array>().unwrap();
                         let val_vec: Vec<f64> =
                             array.non_null_values_iter().map(|v| (v as f64)).collect();
@@ -95,7 +95,7 @@ fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
                         let val_vec: Vec<f64> =
                             array.non_null_values_iter().map(|v| (v as f64)).collect();
@@ -112,7 +112,7 @@ fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Int32Array>().unwrap();
                         let val_vec: Vec<f64> =
                             array.non_null_values_iter().map(|v| (v as f64)).collect();
