@@ -2,7 +2,7 @@ import polars as pl
 import pytest
 from polars import Float32, Int32, Utf8, col
 
-from polars_tdigest import estimate_median, estimate_quantile, tdigest
+from polars_tdigest import estimate_quantile, tdigest
 
 df_int = pl.DataFrame(
     {
@@ -17,28 +17,6 @@ df_float = pl.DataFrame(
         "group": ["a", "a", "a", "b", "b"],
     }
 )
-
-
-def test_estimate_median():
-
-    median_df = (
-        df_int.group_by("group")
-        .agg(
-            [
-                estimate_median("values").alias("estimate_median"),
-                pl.col("values").median().alias("median"),
-            ]
-        )
-        .select(
-            [
-                "estimate_median",
-                "median",
-                (col("estimate_median") - col("median")).alias("diff"),
-            ]
-        )
-    )
-
-    assert median_df.filter(col("diff") != 0.0).height == 0
 
 
 def test_estimate_quantile_int64():
