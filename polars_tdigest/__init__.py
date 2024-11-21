@@ -13,16 +13,6 @@ if TYPE_CHECKING:
 lib = Path(__file__).parent
 
 
-def estimate_median(expr: IntoExpr) -> pl.Expr:
-    return register_plugin_function(
-        plugin_path=Path(__file__).parent,
-        function_name="estimate_median",
-        args=expr,
-        is_elementwise=False,
-        returns_scalar=True,
-    )
-
-
 def tdigest(expr: IntoExpr, max_size: int = 100) -> pl.Expr:
     return register_plugin_function(
         plugin_path=Path(__file__).parent,
