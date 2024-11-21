@@ -44,3 +44,13 @@ def tdigest_cast(expr: IntoExpr, max_size: int = 100) -> pl.Expr:
         returns_scalar=True,
         kwargs={"max_size": max_size},
     )
+
+
+def merge_tdigests(expr: IntoExpr) -> pl.Expr:
+    return register_plugin_function(
+        plugin_path=Path(__file__).parent,
+        function_name="merge_tdigests",
+        args=expr,
+        is_elementwise=False,
+        returns_scalar=True,
+    )
