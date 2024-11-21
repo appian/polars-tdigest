@@ -14,6 +14,21 @@ use std::io::Cursor;
 use std::num::NonZeroUsize;
 use tdigest::TDigest;
 
+#[derive(Debug, Deserialize)]
+struct TDigestCol {
+    tdigest: TDigest,
+}
+
+#[derive(Debug, Deserialize)]
+struct MergeTDKwargs {
+    quantile: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct TDigestKwargs {
+    max_size: usize,
+}
+
 fn tdigest_output(_: &[Field]) -> PolarsResult<Field> {
     Ok(Field::new("tdigest", DataType::Struct(tdigest_fields())))
 }
@@ -170,21 +185,6 @@ fn tdigest_cast(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series
         .unwrap();
 
     Ok(df.into_struct(values.name()).into_series())
-}
-
-#[derive(Debug, Deserialize)]
-struct TDigestCol {
-    tdigest: TDigest,
-}
-
-#[derive(Debug, Deserialize)]
-struct MergeTDKwargs {
-    quantile: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct TDigestKwargs {
-    max_size: usize,
 }
 
 // TODO this should check the type of the series and also work on series other than of type f64
