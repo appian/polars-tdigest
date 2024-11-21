@@ -14,54 +14,6 @@ use std::io::Cursor;
 use std::num::NonZeroUsize;
 use tdigest::TDigest;
 
-// mod tdigest;
-
-#[polars_expr(output_type=String)]
-fn pig_latinnify(inputs: &[Series]) -> PolarsResult<Series> {
-    let ca: &StringChunked = inputs[0].str()?;
-    let out: StringChunked = ca.apply_to_buffer(|value: &str, output: &mut String| {
-        if let Some(first_char) = value.chars().next() {
-            write!(output, "{}{}ay", &value[1..], first_char).unwrap()
-        }
-    });
-    Ok(out.into_series())
-}
-
-fn same_output_type(input_fields: &[Field]) -> PolarsResult<Field> {
-    let field = &input_fields[0];
-    Ok(field.clone())
-}
-
-#[polars_expr(output_type_func=same_output_type)]
-fn noop(inputs: &[Series]) -> PolarsResult<Series> {
-    let s = &inputs[0];
-    Ok(s.clone())
-}
-
-// TODO estimate median should also work on t-digest and be a shortcut for estimate_quantile with quantile=0.5
-#[polars_expr(output_type=Int64)]
-fn estimate_median(inputs: &[Series]) -> PolarsResult<Series> {
-    let values = &inputs[0].i64()?;
-    let t = TDigest::new_with_size(100);
-    let chunks: Vec<TDigest> = values
-        .downcast_iter()
-        .map(|chunk| {
-            let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
-            let val_vec = array
-                .values()
-                .iter()
-                .filter_map(|v| Ok(Some(*v as f64)).transpose())
-                .collect::<Result<Vec<f64>, Vec<f64>>>();
-            t.merge_unsorted(val_vec.unwrap().to_owned())
-        })
-        .collect();
-
-    let t_global = TDigest::merge_digests(chunks);
-    let ans = t_global.estimate_quantile(0.5);
-
-    Ok(Series::new("", vec![ans]))
-}
-
 fn tdigest_output(_: &[Field]) -> PolarsResult<Field> {
     Ok(Field::new("tdigest", DataType::Struct(tdigest_fields())))
 }
@@ -83,29 +35,9 @@ fn tdigest_fields() -> Vec<Field> {
     ]
 }
 
-// fn tidgest_compute<T: NumericNative, PDT: PolarsDataType>(values: &ChunkedArray<PDT>) -> Vec<TDigest> {
-//     let chunks: Vec<TDigest> = POOL.install(|| {
-//         values
-//             .downcast_iter()
-//             .par_bridge()
-//             .map(|chunk| {
-//                 let t = TDigest::new_with_size(100);
-//                 let array = chunk.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-//                 let val_vec: Vec<f64> = array
-//                     .values()
-//                     .iter()
-//                     .filter_map(|v| Some(*v. as f64))
-//                     .collect();
-//                 t.merge_unsorted(val_vec.to_owned())
-//             })
-//             .collect::<Vec<TDigest>>()
-//     });
-//     chunks
-// }
-
 // Todo support other numerical types
 #[polars_expr(output_type_func=tdigest_output)]
-fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
+fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
     let series = &inputs[0];
     // TODO: pooling is not feasible on small datasets
     let chunks = match series.dtype() {
@@ -116,7 +48,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
                         let val_vec: Vec<f64> = array.non_null_values_iter().collect();
                         t.merge_unsorted(val_vec.to_owned())
@@ -199,7 +131,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
 }
 
 #[polars_expr(output_type_func=tdigest_output)]
-fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
+fn tdigest_cast(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
     let supported_dtypes = &[
         DataType::Float64,
         DataType::Float32,
@@ -218,7 +150,7 @@ fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
             .downcast_iter()
             .par_bridge()
             .map(|chunk| {
-                let t = TDigest::new_with_size(100);
+                let t = TDigest::new_with_size(kwargs.max_size);
                 let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
                 t.merge_unsorted(array.values().to_vec())
             })
@@ -250,7 +182,12 @@ struct MergeTDKwargs {
     quantile: f64,
 }
 
-// TODO this should check the type of the series and also work on series of Type f64
+#[derive(Debug, Deserialize)]
+struct TDigestKwargs {
+    max_size: usize,
+}
+
+// TODO this should check the type of the series and also work on series other than of type f64
 #[polars_expr(output_type=Float64)]
 fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<Series> {
     let mut df = inputs[0].clone().into_frame();
