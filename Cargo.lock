@@ -947,7 +947,7 @@ dependencies = [
 
 [[package]]
 name = "polars-tdigest"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "jemallocator",
  "ordered-float 4.2.0",

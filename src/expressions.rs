@@ -8,58 +8,24 @@ use polars_core::utils::arrow::array::{Int32Array, Int64Array};
 use polars_core::POOL;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
-use std::fmt::Write;
 use std::io::BufWriter;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
 use tdigest::TDigest;
 
-// mod tdigest;
-
-#[polars_expr(output_type=String)]
-fn pig_latinnify(inputs: &[Series]) -> PolarsResult<Series> {
-    let ca: &StringChunked = inputs[0].str()?;
-    let out: StringChunked = ca.apply_to_buffer(|value: &str, output: &mut String| {
-        if let Some(first_char) = value.chars().next() {
-            write!(output, "{}{}ay", &value[1..], first_char).unwrap()
-        }
-    });
-    Ok(out.into_series())
+#[derive(Debug, Deserialize)]
+struct TDigestCol {
+    tdigest: TDigest,
 }
 
-fn same_output_type(input_fields: &[Field]) -> PolarsResult<Field> {
-    let field = &input_fields[0];
-    Ok(field.clone())
+#[derive(Debug, Deserialize)]
+struct MergeTDKwargs {
+    quantile: f64,
 }
 
-#[polars_expr(output_type_func=same_output_type)]
-fn noop(inputs: &[Series]) -> PolarsResult<Series> {
-    let s = &inputs[0];
-    Ok(s.clone())
-}
-
-// TODO estimate median should also work on t-digest and be a shortcut for estimate_quantile with quantile=0.5
-#[polars_expr(output_type=Int64)]
-fn estimate_median(inputs: &[Series]) -> PolarsResult<Series> {
-    let values = &inputs[0].i64()?;
-    let t = TDigest::new_with_size(100);
-    let chunks: Vec<TDigest> = values
-        .downcast_iter()
-        .map(|chunk| {
-            let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
-            let val_vec = array
-                .values()
-                .iter()
-                .filter_map(|v| Ok(Some(*v as f64)).transpose())
-                .collect::<Result<Vec<f64>, Vec<f64>>>();
-            t.merge_unsorted(val_vec.unwrap().to_owned())
-        })
-        .collect();
-
-    let t_global = TDigest::merge_digests(chunks);
-    let ans = t_global.estimate_quantile(0.5);
-
-    Ok(Series::new("", vec![ans]))
+#[derive(Debug, Deserialize)]
+struct TDigestKwargs {
+    max_size: usize,
 }
 
 fn tdigest_output(_: &[Field]) -> PolarsResult<Field> {
@@ -83,29 +49,9 @@ fn tdigest_fields() -> Vec<Field> {
     ]
 }
 
-// fn tidgest_compute<T: NumericNative, PDT: PolarsDataType>(values: &ChunkedArray<PDT>) -> Vec<TDigest> {
-//     let chunks: Vec<TDigest> = POOL.install(|| {
-//         values
-//             .downcast_iter()
-//             .par_bridge()
-//             .map(|chunk| {
-//                 let t = TDigest::new_with_size(100);
-//                 let array = chunk.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-//                 let val_vec: Vec<f64> = array
-//                     .values()
-//                     .iter()
-//                     .filter_map(|v| Some(*v. as f64))
-//                     .collect();
-//                 t.merge_unsorted(val_vec.to_owned())
-//             })
-//             .collect::<Vec<TDigest>>()
-//     });
-//     chunks
-// }
-
 // Todo support other numerical types
 #[polars_expr(output_type_func=tdigest_output)]
-fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
+fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
     let series = &inputs[0];
     // TODO: pooling is not feasible on small datasets
     let chunks = match series.dtype() {
@@ -116,7 +62,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
                         let val_vec: Vec<f64> = array.non_null_values_iter().collect();
                         t.merge_unsorted(val_vec.to_owned())
@@ -132,7 +78,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Float32Array>().unwrap();
                         let val_vec: Vec<f64> =
                             array.non_null_values_iter().map(|v| (v as f64)).collect();
@@ -149,7 +95,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
                         let val_vec: Vec<f64> =
                             array.non_null_values_iter().map(|v| (v as f64)).collect();
@@ -166,7 +112,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
                     .downcast_iter()
                     .par_bridge()
                     .map(|chunk| {
-                        let t = TDigest::new_with_size(100);
+                        let t = TDigest::new_with_size(kwargs.max_size);
                         let array = chunk.as_any().downcast_ref::<Int32Array>().unwrap();
                         let val_vec: Vec<f64> =
                             array.non_null_values_iter().map(|v| (v as f64)).collect();
@@ -199,7 +145,7 @@ fn tdigest(inputs: &[Series]) -> PolarsResult<Series> {
 }
 
 #[polars_expr(output_type_func=tdigest_output)]
-fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
+fn tdigest_cast(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
     let supported_dtypes = &[
         DataType::Float64,
         DataType::Float32,
@@ -218,7 +164,7 @@ fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
             .downcast_iter()
             .par_bridge()
             .map(|chunk| {
-                let t = TDigest::new_with_size(100);
+                let t = TDigest::new_with_size(kwargs.max_size);
                 let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
                 t.merge_unsorted(array.values().to_vec())
             })
@@ -238,16 +184,6 @@ fn tdigest_cast(inputs: &[Series]) -> PolarsResult<Series> {
         .unwrap();
 
     Ok(df.into_struct(values.name()).into_series())
-}
-
-#[derive(Debug, Deserialize)]
-struct TDigestCol {
-    tdigest: TDigest,
-}
-
-#[derive(Debug, Deserialize)]
-struct MergeTDKwargs {
-    quantile: f64,
 }
 
 fn extract_tdigest_vec(inputs: &[Series]) -> Vec<TDigestCol> {
