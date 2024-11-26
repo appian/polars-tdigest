@@ -1,6 +1,7 @@
 #![allow(clippy::unused_unit)]
 use polars::prelude::*;
 
+use crate::tdigest::TDigest;
 use polars_core::export::rayon::prelude::*;
 use polars_core::utils::arrow::array::Array;
 use polars_core::utils::arrow::array::{Float32Array, Float64Array};
@@ -11,7 +12,6 @@ use serde::Deserialize;
 use std::io::BufWriter;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
-use crate::tdigest::TDigest;
 
 #[derive(Debug, Deserialize)]
 struct TDigestCol {

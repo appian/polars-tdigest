@@ -1,10 +1,10 @@
 /*
  * Original version created by by Paul Meng and distributed under Apache-2.0 license.
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * https://github.com/MnO2/t-digest
- * 
+ *
  */
 
 use ordered_float::OrderedFloat;
@@ -88,12 +88,19 @@ impl TDigest {
             max_size,
             sum: OrderedFloat::from(0.0),
             count: OrderedFloat::from(0.0),
-            max: OrderedFloat::from(std::f64::NAN),
-            min: OrderedFloat::from(std::f64::NAN),
+            max: OrderedFloat::from(f64::NAN),
+            min: OrderedFloat::from(f64::NAN),
         }
     }
 
-    pub fn new(centroids: Vec<Centroid>, sum: f64, count: f64, max: f64, min: f64, max_size: usize) -> Self {
+    pub fn new(
+        centroids: Vec<Centroid>,
+        sum: f64,
+        count: f64,
+        max: f64,
+        min: f64,
+        max_size: usize,
+    ) -> Self {
         if centroids.len() <= max_size {
             TDigest {
                 centroids,
@@ -164,8 +171,8 @@ impl Default for TDigest {
             max_size: 100,
             sum: OrderedFloat::from(0.0),
             count: OrderedFloat::from(0.0),
-            max: OrderedFloat::from(std::f64::NAN),
-            min: OrderedFloat::from(std::f64::NAN),
+            max: OrderedFloat::from(f64::NAN),
+            min: OrderedFloat::from(f64::NAN),
         }
     }
 }
@@ -192,7 +199,10 @@ impl TDigest {
     }
 
     pub fn merge_unsorted(&self, unsorted_values: Vec<f64>) -> TDigest {
-        let mut sorted_values: Vec<OrderedFloat<f64>> = unsorted_values.into_iter().map(OrderedFloat::from).collect();
+        let mut sorted_values: Vec<OrderedFloat<f64>> = unsorted_values
+            .into_iter()
+            .map(OrderedFloat::from)
+            .collect();
         sorted_values.sort();
         let sorted_values = sorted_values.into_iter().map(|f| f.into_inner()).collect();
 
@@ -221,7 +231,8 @@ impl TDigest {
         let mut compressed: Vec<Centroid> = Vec::with_capacity(self.max_size);
 
         let mut k_limit: f64 = 1.0;
-        let mut q_limit_times_count: f64 = Self::k_to_q(k_limit, self.max_size as f64) * result.count.into_inner();
+        let mut q_limit_times_count: f64 =
+            Self::k_to_q(k_limit, self.max_size as f64) * result.count.into_inner();
         k_limit += 1.0;
 
         let mut iter_centroids = self.centroids.iter().peekable();
@@ -245,7 +256,9 @@ impl TDigest {
 
         while iter_centroids.peek().is_some() || iter_sorted_values.peek().is_some() {
             let next: Centroid = if let Some(c) = iter_centroids.peek() {
-                if iter_sorted_values.peek().is_none() || c.mean() < **iter_sorted_values.peek().unwrap() {
+                if iter_sorted_values.peek().is_none()
+                    || c.mean() < **iter_sorted_values.peek().unwrap()
+                {
                     iter_centroids.next().unwrap().clone()
                 } else {
                     Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
@@ -261,7 +274,9 @@ impl TDigest {
                 sums_to_merge += next_sum;
                 weights_to_merge += next.weight();
             } else {
-                result.sum = OrderedFloat::from(result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge));
+                result.sum = OrderedFloat::from(
+                    result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge),
+                );
                 sums_to_merge = 0.0;
                 weights_to_merge = 0.0;
 
@@ -272,7 +287,8 @@ impl TDigest {
             }
         }
 
-        result.sum = OrderedFloat::from(result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge));
+        result.sum =
+            OrderedFloat::from(result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge));
         compressed.push(curr);
         compressed.shrink_to_fit();
         compressed.sort();
@@ -281,7 +297,7 @@ impl TDigest {
         result
     }
 
-    fn external_merge(centroids: &mut Vec<Centroid>, first: usize, middle: usize, last: usize) {
+    fn external_merge(centroids: &mut [Centroid], first: usize, middle: usize, last: usize) {
         let mut result: Vec<Centroid> = Vec::with_capacity(centroids.len());
 
         let mut i = first;
@@ -333,8 +349,8 @@ impl TDigest {
         let mut starts: Vec<usize> = Vec::with_capacity(digests.len());
 
         let mut count: f64 = 0.0;
-        let mut min = OrderedFloat::from(std::f64::INFINITY);
-        let mut max = OrderedFloat::from(std::f64::NEG_INFINITY);
+        let mut min = OrderedFloat::from(f64::INFINITY);
+        let mut max = OrderedFloat::from(f64::NEG_INFINITY);
 
         let mut start: usize = 0;
         for digest in digests.into_iter() {
@@ -376,7 +392,7 @@ impl TDigest {
         let mut compressed: Vec<Centroid> = Vec::with_capacity(max_size);
 
         let mut k_limit: f64 = 1.0;
-        let mut q_limit_times_count: f64 = Self::k_to_q(k_limit, max_size as f64) * (count as f64);
+        let mut q_limit_times_count: f64 = Self::k_to_q(k_limit, max_size as f64) * count;
 
         let mut iter_centroids = centroids.iter_mut();
         let mut curr = iter_centroids.next().unwrap();
@@ -391,22 +407,25 @@ impl TDigest {
                 sums_to_merge += centroid.mean() * centroid.weight();
                 weights_to_merge += centroid.weight();
             } else {
-                result.sum = OrderedFloat::from(result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge));
+                result.sum = OrderedFloat::from(
+                    result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge),
+                );
                 sums_to_merge = 0.0;
                 weights_to_merge = 0.0;
                 compressed.push(curr.clone());
-                q_limit_times_count = Self::k_to_q(k_limit, max_size as f64) * (count as f64);
+                q_limit_times_count = Self::k_to_q(k_limit, max_size as f64) * count;
                 k_limit += 1.0;
                 curr = centroid;
             }
         }
 
-        result.sum = OrderedFloat::from(result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge));
+        result.sum =
+            OrderedFloat::from(result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge));
         compressed.push(curr.clone());
         compressed.shrink_to_fit();
         compressed.sort();
 
-        result.count = OrderedFloat::from(count as f64);
+        result.count = OrderedFloat::from(count);
         result.min = min;
         result.max = max;
         result.centroids = compressed;
@@ -476,7 +495,8 @@ impl TDigest {
             }
         }
 
-        let value = self.centroids[pos].mean() + ((rank - t) / self.centroids[pos].weight() - 0.5) * delta;
+        let value =
+            self.centroids[pos].mean() + ((rank - t) / self.centroids[pos].weight() - 0.5) * delta;
         Self::clamp(value, min, max)
     }
 }
