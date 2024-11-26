@@ -1,5 +1,6 @@
 mod expressions;
 mod utils;
+pub mod tdigest;
 
 #[cfg(target_os = "linux")]
 use jemallocator::Jemalloc;

@@ -11,7 +11,6 @@ crate-type= ["cdylib"]
 
 serde = { version = "1", features = ["derive"] }
 polars = { version = "0.40.0", features=["dtype-struct", "fmt"], default-features = false }
-tdigest = { version = "0.2.3", features=["use_serde"] }
 ordered-float = { version = "4.2.0", features=["serde"] }
 polars-arrow = "0.40.0"
 serde_json = "1.0.117"

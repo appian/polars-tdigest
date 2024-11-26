@@ -574,16 +574,6 @@ checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "ordered-float"
-version = "2.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f19d67e5a2795c94e73e0bb1cc1a7edeb2e28efd39e2e1c9b7a40c1108b11c"
-dependencies = [
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "ordered-float"
 version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a76df7075c7d4d01fdcb46c912dd17fba5b60c78ea480b475f2b6ab6f666584e"
@@ -950,7 +940,7 @@ name = "polars-tdigest"
 version = "0.1.7"
 dependencies = [
  "jemallocator",
- "ordered-float 4.2.0",
+ "ordered-float",
  "polars",
  "polars-arrow",
  "polars-io",
@@ -958,7 +948,6 @@ dependencies = [
  "pyo3-polars",
  "serde",
  "serde_json",
- "tdigest",
 ]
 
 [[package]]
@@ -1464,16 +1453,6 @@ name = "target-lexicon"
 version = "0.12.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
-
-[[package]]
-name = "tdigest"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c45d225a08ebccf0e0c7d46db4066ea8ab05b29d3750ecc1a04f1675978bf3c8"
-dependencies = [
- "ordered-float 2.10.1",
- "serde",
-]
 
 [[package]]
 name = "thiserror"

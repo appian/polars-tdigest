@@ -11,7 +11,7 @@ use serde::Deserialize;
 use std::io::BufWriter;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
-use tdigest::TDigest;
+use crate::tdigest::TDigest;
 
 #[derive(Debug, Deserialize)]
 struct TDigestCol {
