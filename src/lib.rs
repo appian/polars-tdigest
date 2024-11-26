@@ -1,4 +1,5 @@
 mod expressions;
+pub mod tdigest;
 mod utils;
 
 #[cfg(target_os = "linux")]
