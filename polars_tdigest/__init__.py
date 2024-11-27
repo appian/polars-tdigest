@@ -34,6 +34,15 @@ def estimate_quantile(expr: IntoExpr, quantile: float) -> pl.Expr:
         kwargs={"quantile": quantile},
     )
 
+def estimate_median(expr: IntoExpr) -> pl.Expr:
+    return register_plugin_function(
+        plugin_path=Path(__file__).parent,
+        function_name="estimate_median",
+        args=expr,
+        is_elementwise=False,
+        returns_scalar=True,
+    )
+
 
 def tdigest_cast(expr: IntoExpr, max_size: int = 100) -> pl.Expr:
     return register_plugin_function(

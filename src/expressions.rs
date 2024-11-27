@@ -200,16 +200,16 @@ fn extract_tdigest_vec(inputs: &[Series]) -> Vec<TDigestCol> {
     serde_json::from_str(&json_str).expect("Failed to parse the tdigest JSON string")
 }
 
+fn parse_tdigest(inputs: &[Series]) -> TDigest {
+    let tdigest_json: Vec<TDigestCol> = extract_tdigest_vec(inputs);
+    let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
+    TDigest::merge_digests(tdigests)
+}
+
 #[polars_expr(output_type_func=tdigest_output)]
 fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
-    let series = &inputs[0];
-    let tdigest_json: Vec<TDigestCol> = extract_tdigest_vec(inputs);
-
-    let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
-    let tdigest = TDigest::merge_digests(tdigests);
-
+    let tdigest = parse_tdigest(inputs);
     let td_json = serde_json::to_string(&tdigest).unwrap();
-
     let file = Cursor::new(&td_json);
     let df = JsonReader::new(file)
         .with_json_format(JsonFormat::JsonLines)
@@ -218,21 +218,30 @@ fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
         .finish()
         .unwrap();
 
-    Ok(df.into_struct(series.name()).into_series())
+    Ok(df.into_struct(inputs[0].name()).into_series())
 }
 
 // TODO this should check the type of the series and also work on series of Type f64
 #[polars_expr(output_type=Float64)]
 fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<Series> {
-    let tdigest_json: Vec<TDigestCol> = extract_tdigest_vec(inputs);
-
-    let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
-    let tdigest = TDigest::merge_digests(tdigests);
+    let tdigest = parse_tdigest(inputs);
     if tdigest.is_empty() {
         let v: &[Option<f64>] = &[None];
         Ok(Series::new("", v))
     } else {
         let ans = tdigest.estimate_quantile(kwargs.quantile);
+        Ok(Series::new("", vec![ans]))
+    }
+}
+
+#[polars_expr(output_type=Float64)]
+fn estimate_median(inputs: &[Series]) -> PolarsResult<Series> {
+    let tdigest = parse_tdigest(inputs);
+    if tdigest.is_empty() {
+        let v: &[Option<f64>] = &[None];
+        Ok(Series::new("", v))
+    } else {
+        let ans = tdigest.estimate_median();
         Ok(Series::new("", vec![ans]))
     }
 }

@@ -499,6 +499,35 @@ impl TDigest {
             self.centroids[pos].mean() + ((rank - t) / self.centroids[pos].weight() - 0.5) * delta;
         Self::clamp(value, min, max)
     }
+
+    fn find_median_between_centroids(&self) -> Option<f64> {
+        if (self.count.into_inner() as i64) % 2 != 0 {
+            return None;
+        }
+        let mut target = (self.count.into_inner() as i64) / 2;
+        for (idx, c) in self.centroids.iter().enumerate() {
+            target -= c.weight() as i64;
+            if target == 0 {
+                let m1 = c.mean();
+                let m2 = self.centroids[idx + 1].mean();
+                return Option::Some((m1 + m2) / 2.0);
+            }
+            if target < 0 {
+                return Option::None;
+            }
+        }
+        Option::None
+    }
+
+    pub fn estimate_median(&self) -> f64 {
+        /*
+         * If the number of elements is even, median is average of two adjacent observation.
+         * Interpolation algorithm used in `estimate_quantile` often positions estimated median too far away from the middle point.
+         * So let's detect the case when the median is exactly between two centroids.
+         */
+        self.find_median_between_centroids()
+            .unwrap_or(self.estimate_quantile(0.5))
+    }
 }
 
 #[cfg(test)]
@@ -701,5 +730,27 @@ mod tests {
 
         let percentage: f64 = (expected - ans).abs() / expected;
         assert!(percentage < 0.01);
+    }
+
+    #[test]
+    fn test_median_between_centroids() {
+        // median of [-1, -1, ..., 1, 1] should be ~0
+        let mut quantile_didnt_work: bool = false;
+        for num in [1, 2, 3, 10, 20] {
+            let mut t = TDigest::new_with_size(100);
+            for _ in 1..=num {
+                t = t.merge_sorted(vec![-1.0]);
+            }
+            for _ in 1..=num {
+                t = t.merge_sorted(vec![1.0]);
+            }
+
+            if t.estimate_quantile(0.5).abs() > 0.1 {
+                quantile_didnt_work = true;
+            }
+
+            assert!(t.estimate_median().abs() < 0.01);
+        }
+        assert!(quantile_didnt_work);
     }
 }
