@@ -162,6 +162,11 @@ impl TDigest {
     pub fn max_size(&self) -> usize {
         self.max_size
     }
+
+    #[inline]
+    pub fn centroids(&self) -> &Vec<Centroid> {
+        &self.centroids
+    }
 }
 
 impl Default for TDigest {
@@ -532,6 +537,7 @@ impl TDigest {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
