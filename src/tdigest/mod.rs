@@ -7,6 +7,10 @@
  *
  */
 
+
+
+pub mod codecs;
+
 use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
 
