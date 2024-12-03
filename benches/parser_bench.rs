@@ -1,12 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use polars::series::Series;
-use polars_tdigest::tdigest::{Centroid, TDigest, codecs::parse_tdigests, codecs::tdigest_to_series};
-use pyo3_polars::derive::polars_expr;
-use serde::Deserialize;
-use std::fmt::Write;
-use std::io::BufWriter;
-use std::io::Cursor;
-use std::num::NonZeroUsize;
+use polars_tdigest::tdigest::{
+    codecs::parse_tdigests, codecs::tdigest_to_series, Centroid, TDigest,
+};
 
 mod legacy_json_parser {
     use std::io::BufWriter;
@@ -16,7 +12,6 @@ mod legacy_json_parser {
     use serde::Deserialize;
 
     use polars::prelude::*;
-
 
     #[derive(Debug, Deserialize)]
     struct TDigestCol {
@@ -30,10 +25,10 @@ mod legacy_json_parser {
         let _json = JsonWriter::new(&mut buf)
             .with_json_format(JsonFormat::Json)
             .finish(&mut df);
-    
+
         let bytes = buf.into_inner().unwrap();
         let json_str = String::from_utf8(bytes).unwrap();
-    
+
         serde_json::from_str(&json_str).expect("Failed to parse the tdigest JSON string")
     }
 
@@ -44,20 +39,21 @@ mod legacy_json_parser {
 }
 
 fn create_tdigest(size: usize, nonce: f64) -> TDigest {
-    let centroids: Vec<Centroid> = (1..size).map(|n| {Centroid::new((n as f64 + nonce) * 1000.0, n as f64 + nonce)}).collect();
+    let centroids: Vec<Centroid> = (1..size)
+        .map(|n| Centroid::new((n as f64 + nonce) * 1000.0, n as f64 + nonce))
+        .collect();
     TDigest::new(centroids, nonce, size as f64, 42.0, 42.0, size * 10)
 }
 
 fn create_series() -> Series {
     let mut series = tdigest_to_series(create_tdigest(100, 0.0), "name");
-    (1 .. 9).for_each(|i| {
-        series.append(&tdigest_to_series(create_tdigest(100, 0.0), "name")).unwrap();
+    (1..9).for_each(|i| {
+        series
+            .append(&tdigest_to_series(create_tdigest(100, 0.0), "name"))
+            .unwrap();
     });
     return series;
 }
-
-
-
 
 fn reading_tdigests_directly_benchmark(c: &mut Criterion) {
     let series = create_series();
@@ -67,7 +63,9 @@ fn reading_tdigests_directly_benchmark(c: &mut Criterion) {
 fn reading_tdigests_json_benchmark(c: &mut Criterion) {
     let series = create_series();
 
-    c.bench_function("parse_via_serde", |b| b.iter(|| legacy_json_parser::parse(black_box(&series))));
+    c.bench_function("parse_via_serde", |b| {
+        b.iter(|| legacy_json_parser::parse(black_box(&series)))
+    });
 }
 
 fn sleep_bench(c: &mut Criterion) {
@@ -75,9 +73,13 @@ fn sleep_bench(c: &mut Criterion) {
 
     let ten_millis = time::Duration::from_millis(10);
 
-
     c.bench_function("sleep", |b| b.iter(|| thread::sleep(ten_millis)));
 }
 
-criterion_group!(benches, reading_tdigests_directly_benchmark, reading_tdigests_json_benchmark, sleep_bench);
+criterion_group!(
+    benches,
+    reading_tdigests_directly_benchmark,
+    reading_tdigests_json_benchmark,
+    sleep_bench
+);
 criterion_main!(benches);

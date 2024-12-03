@@ -1,15 +1,6 @@
-
-
-use polars::series::Series;
-
-use polars::prelude::*;
-
 use crate::tdigest::{Centroid, TDigest};
-    
-use pyo3_polars::derive::polars_expr;
-use serde::Deserialize;
-    
-
+use polars::prelude::*;
+use polars::series::Series;
 
 // TODO: error handling w/o panic
 pub fn parse_tdigests(input: &Series) -> Vec<TDigest> {
@@ -88,7 +79,6 @@ pub fn tdigest_to_series(tdigest: TDigest, name: &str) -> Series {
     .into_struct(name)
     .into_series()
 }
-
 
 #[cfg(test)]
 mod tests {

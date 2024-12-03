@@ -7,8 +7,6 @@
  *
  */
 
-
-
 pub mod codecs;
 
 use ordered_float::OrderedFloat;

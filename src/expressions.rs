@@ -1,7 +1,7 @@
 #![allow(clippy::unused_unit)]
 use polars::prelude::*;
 
-use crate::tdigest::{codecs::parse_tdigests, codecs::tdigest_to_series, Centroid, TDigest};
+use crate::tdigest::{codecs::parse_tdigests, codecs::tdigest_to_series, TDigest};
 
 use polars_core::export::rayon::prelude::*;
 use polars_core::utils::arrow::array::Array;
@@ -193,4 +193,3 @@ fn estimate_median(inputs: &[Series]) -> PolarsResult<Series> {
         Ok(Series::new("", vec![ans]))
     }
 }
-
