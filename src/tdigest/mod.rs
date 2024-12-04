@@ -7,6 +7,8 @@
  *
  */
 
+pub mod codecs;
+
 use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
 
@@ -161,6 +163,11 @@ impl TDigest {
     #[inline]
     pub fn max_size(&self) -> usize {
         self.max_size
+    }
+
+    #[inline]
+    pub fn centroids(&self) -> &Vec<Centroid> {
+        &self.centroids
     }
 }
 
@@ -532,6 +539,7 @@ impl TDigest {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]

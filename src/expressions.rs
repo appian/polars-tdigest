@@ -1,7 +1,8 @@
 #![allow(clippy::unused_unit)]
 use polars::prelude::*;
 
-use crate::tdigest::TDigest;
+use crate::tdigest::{codecs::parse_tdigests, codecs::tdigest_to_series, TDigest};
+
 use polars_core::export::rayon::prelude::*;
 use polars_core::utils::arrow::array::Array;
 use polars_core::utils::arrow::array::{Float32Array, Float64Array};
@@ -9,15 +10,8 @@ use polars_core::utils::arrow::array::{Int32Array, Int64Array};
 use polars_core::POOL;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
-use std::io::BufWriter;
-use std::io::Cursor;
-use std::num::NonZeroUsize;
 
-#[derive(Debug, Deserialize)]
-struct TDigestCol {
-    tdigest: TDigest,
-}
-
+// TODO: get rid of serde completely
 #[derive(Debug, Deserialize)]
 struct MergeTDKwargs {
     quantile: f64,
@@ -37,13 +31,13 @@ fn tdigest_fields() -> Vec<Field> {
         Field::new(
             "centroids",
             DataType::List(Box::new(DataType::Struct(vec![
-                Field::new("mean", DataType::Int64),
+                Field::new("mean", DataType::Float64),
                 Field::new("weight", DataType::Int64),
             ]))),
         ),
-        Field::new("sum", DataType::Int64),
-        Field::new("min", DataType::Int64),
-        Field::new("max", DataType::Int64),
+        Field::new("sum", DataType::Float64),
+        Field::new("min", DataType::Float64),
+        Field::new("max", DataType::Float64),
         Field::new("count", DataType::Int64),
         Field::new("max_size", DataType::Int64),
     ]
@@ -130,18 +124,7 @@ fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
         // Default value for TDigest contains NaNs that cause problems during serialization/deserailization
         td_global = TDigest::new(Vec::new(), 100.0, 0.0, 0.0, 0.0, 0)
     }
-
-    let td_json = serde_json::to_string(&td_global).unwrap();
-
-    let file = Cursor::new(&td_json);
-    let df = JsonReader::new(file)
-        .with_json_format(JsonFormat::JsonLines)
-        .with_schema(Arc::new(Schema::from_iter(tdigest_fields())))
-        .with_batch_size(NonZeroUsize::new(3).unwrap())
-        .finish()
-        .unwrap();
-
-    Ok(df.into_struct(series.name()).into_series())
+    Ok(tdigest_to_series(td_global, series.name()))
 }
 
 #[polars_expr(output_type_func=tdigest_output)]
@@ -172,53 +155,18 @@ fn tdigest_cast(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series
     });
 
     let t_global = TDigest::merge_digests(chunks);
-
-    let td_json = serde_json::to_string(&t_global).unwrap();
-
-    let file = Cursor::new(&td_json);
-    let df = JsonReader::new(file)
-        .with_json_format(JsonFormat::JsonLines)
-        .with_schema(Arc::new(Schema::from_iter(tdigest_fields())))
-        .with_batch_size(NonZeroUsize::new(3).unwrap())
-        .finish()
-        .unwrap();
-
-    Ok(df.into_struct(values.name()).into_series())
-}
-
-fn extract_tdigest_vec(inputs: &[Series]) -> Vec<TDigestCol> {
-    let mut df = inputs[0].clone().into_frame();
-    df.set_column_names(vec!["tdigest"].as_slice()).unwrap();
-    let mut buf = BufWriter::new(Vec::new());
-    let _json = JsonWriter::new(&mut buf)
-        .with_json_format(JsonFormat::Json)
-        .finish(&mut df);
-
-    let bytes = buf.into_inner().unwrap();
-    let json_str = String::from_utf8(bytes).unwrap();
-
-    serde_json::from_str(&json_str).expect("Failed to parse the tdigest JSON string")
+    Ok(tdigest_to_series(t_global, series.name()))
 }
 
 fn parse_tdigest(inputs: &[Series]) -> TDigest {
-    let tdigest_json: Vec<TDigestCol> = extract_tdigest_vec(inputs);
-    let tdigests: Vec<TDigest> = tdigest_json.into_iter().map(|td| td.tdigest).collect();
+    let tdigests: Vec<TDigest> = parse_tdigests(&inputs[0]);
     TDigest::merge_digests(tdigests)
 }
 
 #[polars_expr(output_type_func=tdigest_output)]
 fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
     let tdigest = parse_tdigest(inputs);
-    let td_json = serde_json::to_string(&tdigest).unwrap();
-    let file = Cursor::new(&td_json);
-    let df = JsonReader::new(file)
-        .with_json_format(JsonFormat::JsonLines)
-        .with_schema(Arc::new(Schema::from_iter(tdigest_fields())))
-        .with_batch_size(NonZeroUsize::new(3).unwrap())
-        .finish()
-        .unwrap();
-
-    Ok(df.into_struct(inputs[0].name()).into_series())
+    Ok(tdigest_to_series(tdigest, inputs[0].name()))
 }
 
 // TODO this should check the type of the series and also work on series of Type f64
