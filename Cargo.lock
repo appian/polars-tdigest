@@ -1119,7 +1119,7 @@ dependencies = [
 
 [[package]]
 name = "polars-tdigest"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "criterion",
  "jemallocator",
