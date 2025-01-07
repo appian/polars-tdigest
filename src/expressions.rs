@@ -5,11 +5,18 @@ use crate::tdigest::{codecs::parse_tdigests, codecs::tdigest_to_series, TDigest}
 
 use polars_core::export::rayon::prelude::*;
 use polars_core::utils::arrow::array::Array;
-use polars_core::utils::arrow::array::{Float32Array, Float64Array};
-use polars_core::utils::arrow::array::{Int32Array, Int64Array};
+use polars_core::utils::arrow::array::Float64Array;
 use polars_core::POOL;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
+
+static SUPPORTED_TYPES: &[DataType] = &[
+    DataType::Float32,
+    DataType::Int64,
+    DataType::Int32,
+    DataType::UInt64,
+    DataType::UInt32,
+];
 
 // TODO: get rid of serde completely
 #[derive(Debug, Deserialize)]
@@ -46,116 +53,49 @@ fn tdigest_fields() -> Vec<Field> {
 // Todo support other numerical types
 #[polars_expr(output_type_func=tdigest_output)]
 fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
-    let series = &inputs[0];
-    // TODO: pooling is not feasible on small datasets
-    let chunks = match series.dtype() {
-        DataType::Float64 => {
-            let values = series.f64()?;
-            let chunks: Vec<TDigest> = POOL.install(|| {
-                values
-                    .downcast_iter()
-                    .par_bridge()
-                    .map(|chunk| {
-                        let t = TDigest::new_with_size(kwargs.max_size);
-                        let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
-                        let val_vec: Vec<f64> = array.non_null_values_iter().collect();
-                        t.merge_unsorted(val_vec.to_owned())
-                    })
-                    .collect::<Vec<TDigest>>()
-            });
-            chunks
-        }
-        DataType::Float32 => {
-            let values = series.f32()?;
-            let chunks: Vec<TDigest> = POOL.install(|| {
-                values
-                    .downcast_iter()
-                    .par_bridge()
-                    .map(|chunk| {
-                        let t = TDigest::new_with_size(kwargs.max_size);
-                        let array = chunk.as_any().downcast_ref::<Float32Array>().unwrap();
-                        let val_vec: Vec<f64> =
-                            array.non_null_values_iter().map(|v| (v as f64)).collect();
-                        t.merge_unsorted(val_vec.to_owned())
-                    })
-                    .collect::<Vec<TDigest>>()
-            });
-            chunks
-        }
-        DataType::Int64 => {
-            let values = series.i64()?;
-            let chunks: Vec<TDigest> = POOL.install(|| {
-                values
-                    .downcast_iter()
-                    .par_bridge()
-                    .map(|chunk| {
-                        let t = TDigest::new_with_size(kwargs.max_size);
-                        let array = chunk.as_any().downcast_ref::<Int64Array>().unwrap();
-                        let val_vec: Vec<f64> =
-                            array.non_null_values_iter().map(|v| (v as f64)).collect();
-                        t.merge_unsorted(val_vec.to_owned())
-                    })
-                    .collect::<Vec<TDigest>>()
-            });
-            chunks
-        }
-        DataType::Int32 => {
-            let values = series.i32()?;
-            let chunks: Vec<TDigest> = POOL.install(|| {
-                values
-                    .downcast_iter()
-                    .par_bridge()
-                    .map(|chunk| {
-                        let t = TDigest::new_with_size(kwargs.max_size);
-                        let array = chunk.as_any().downcast_ref::<Int32Array>().unwrap();
-                        let val_vec: Vec<f64> =
-                            array.non_null_values_iter().map(|v| (v as f64)).collect();
-                        t.merge_unsorted(val_vec.to_owned())
-                    })
-                    .collect::<Vec<TDigest>>()
-            });
-            chunks
-        }
-        _ => polars_bail!(InvalidOperation: "only supported for numerical types"),
-    };
-
-    let mut td_global = TDigest::merge_digests(chunks);
-    if td_global.is_empty() {
+    let mut tdigest = tdigest_from_series(inputs, kwargs.max_size)?;
+    if tdigest.is_empty() {
         // Default value for TDigest contains NaNs that cause problems during serialization/deserailization
-        td_global = TDigest::new(Vec::new(), 100.0, 0.0, 0.0, 0.0, 0)
+        tdigest = TDigest::new(Vec::new(), 100.0, 0.0, 0.0, 0.0, 0)
     }
-    Ok(tdigest_to_series(td_global, series.name()))
+    Ok(tdigest_to_series(tdigest, inputs[0].name()))
 }
 
 #[polars_expr(output_type_func=tdigest_output)]
 fn tdigest_cast(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
-    let supported_dtypes = &[
-        DataType::Float64,
-        DataType::Float32,
-        DataType::Int64,
-        DataType::Int32,
-    ];
-    let series: Series = if supported_dtypes.contains(inputs[0].dtype()) {
-        inputs[0].cast(&DataType::Float64)?
-    } else {
-        polars_bail!(InvalidOperation: "only supported for numerical types");
-    };
-    let values = series.f64()?;
+    let tdigest = tdigest_from_series(inputs, kwargs.max_size)?;
+    Ok(tdigest_to_series(tdigest, inputs[0].name()))
+}
 
+fn tdigest_from_series(inputs: &[Series], max_size: usize) -> PolarsResult<TDigest> {
+    let series = &inputs[0];
+    let series_casted: &Series = if series.dtype() == &DataType::Float64 {
+        series
+    } else {
+        if !SUPPORTED_TYPES.contains(series.dtype()) {
+            polars_bail!(InvalidOperation: "only supported for numerical types");
+        }
+        let cast_result = series.cast(&DataType::Float64);
+        if cast_result.is_err() {
+            polars_bail!(InvalidOperation: "only supported for numerical types");
+        }
+        &cast_result.unwrap()
+    };
+
+    let values = series_casted.f64()?;
     let chunks: Vec<TDigest> = POOL.install(|| {
         values
             .downcast_iter()
             .par_bridge()
             .map(|chunk| {
-                let t = TDigest::new_with_size(kwargs.max_size);
+                let t = TDigest::new_with_size(max_size);
                 let array = chunk.as_any().downcast_ref::<Float64Array>().unwrap();
-                t.merge_unsorted(array.values().to_vec())
+                t.merge_unsorted(array.non_null_values_iter().collect())
             })
             .collect::<Vec<TDigest>>()
     });
 
-    let t_global = TDigest::merge_digests(chunks);
-    Ok(tdigest_to_series(t_global, series.name()))
+    Ok(TDigest::merge_digests(chunks))
 }
 
 fn parse_tdigest(inputs: &[Series]) -> TDigest {
@@ -191,5 +131,32 @@ fn estimate_median(inputs: &[Series]) -> PolarsResult<Series> {
     } else {
         let ans = tdigest.estimate_median();
         Ok(Series::new("", vec![ans]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_supporting_different_numeric_types() {
+        // These types are not supported w/o special compilation flags
+        // The plugin panics if these types are used probably due to magic in #[palars_expr] annotations
+        let unsupported_types = [
+            DataType::Int16,
+            DataType::Int8,
+            DataType::UInt16,
+            DataType::UInt8,
+        ];
+
+        SUPPORTED_TYPES.iter().for_each(|t| {
+            let series = [Series::new("n", [1, 2, 3]).cast(t).unwrap()];
+            let td = tdigest_from_series(&series, 200).unwrap();
+            assert!(td.estimate_median() == 2.0);
+        });
+
+        unsupported_types.iter().for_each(|t| {
+            assert!(Series::new("n", [1, 2, 3]).cast(t).is_err());
+        });
     }
 }
