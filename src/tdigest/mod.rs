@@ -169,6 +169,49 @@ impl TDigest {
     pub fn centroids(&self) -> &Vec<Centroid> {
         &self.centroids
     }
+
+    pub fn estimate_cdf(&self, val: f64) -> f64 {
+        if self.centroids.is_empty() {
+            return f64::NAN;
+        }
+
+        let mut k = 0.0;
+        let mut i = 0;
+        let mut c = &self.centroids[0];
+
+        for (index, centroid) in self.centroids.iter().enumerate() {
+            if centroid.mean() >= val {
+                c = centroid;
+                i = index;
+                break;
+            }
+            k += centroid.weight();
+        }
+
+        if val == c.mean() {
+            let mut weight_at_value = c.weight();
+            for centroid in &self.centroids[i + 1..] {
+                if centroid.mean() == c.mean() {
+                    weight_at_value += centroid.weight();
+                } else {
+                    break;
+                }
+            }
+            return (k + (weight_at_value / 2.0)) / self.count();
+        } else if val > c.mean() {
+            return 1.0;
+        } else if i == 0 {
+            return 0.0;
+        }
+
+        let cr = c;
+        let cl = &self.centroids[i - 1];
+        k -= cl.weight() / 2.0;
+
+        let m = (cr.mean() - cl.mean()) / (cl.weight() / 2.0 + cr.weight() / 2.0);
+        let x = (val - cl.mean()) / m;
+        (k + x) / self.count()
+    }
 }
 
 impl Default for TDigest {
@@ -760,5 +803,27 @@ mod tests {
             assert!(t.estimate_median().abs() < 0.01);
         }
         assert!(quantile_didnt_work);
+    }
+
+    #[test]
+    fn test_cdf() {
+        let t = TDigest::new_with_size(100);
+        let values: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let t = t.merge_sorted(values);
+
+        assert!(
+            (t.estimate_cdf(3.0) - 0.5).abs() < 0.0001,
+            "CDF(3.0) deviates from 0.5"
+        );
+        assert!(
+            (t.estimate_cdf(1.0) - 0.1).abs() < 0.0001,
+            "CDF(1.0) deviates from 0.1"
+        );
+        assert!(
+            (t.estimate_cdf(5.0) - 0.9).abs() < 0.0001,
+            "CDF(5.0) deviates from 0.9"
+        );
+        assert_eq!(t.estimate_cdf(0.0), 0.0, "CDF(0.0) should be 0.0");
+        assert_eq!(t.estimate_cdf(6.0), 1.0, "CDF(6.0) should be 1.0");
     }
 }
