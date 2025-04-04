@@ -72,6 +72,19 @@ impl Default for Centroid {
     }
 }
 
+impl Default for TDigest {
+    fn default() -> Self {
+        TDigest {
+            centroids: Vec::new(),
+            max_size: 100,
+            sum: OrderedFloat::from(0.0),
+            count: OrderedFloat::from(0.0),
+            max: OrderedFloat::from(f64::NAN),
+            min: OrderedFloat::from(f64::NAN),
+        }
+    }
+}
+
 /// T-Digest to be operated on.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TDigest {
@@ -84,6 +97,26 @@ pub struct TDigest {
 }
 
 impl TDigest {
+    fn k_to_q(k: f64, d: f64) -> f64 {
+        let k_div_d = k / d;
+        if k_div_d >= 0.5 {
+            let base = 1.0 - k_div_d;
+            1.0 - 2.0 * base * base
+        } else {
+            2.0 * k_div_d * k_div_d
+        }
+    }
+
+    fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
+        if v > hi {
+            hi
+        } else if v < lo {
+            lo
+        } else {
+            v
+        }
+    }
+
     pub fn new_with_size(max_size: usize) -> Self {
         TDigest {
             centroids: Vec::new(),
@@ -175,76 +208,42 @@ impl TDigest {
             return f64::NAN;
         }
 
-        let mut k = 0.0;
-        let mut i = 0;
-        let mut c = &self.centroids[0];
+        let mut running_total_weight = 0.0;
+        let mut matched_centroid: Option<(usize, &Centroid)> = None;
 
         for (index, centroid) in self.centroids.iter().enumerate() {
             if centroid.mean() >= val {
-                c = centroid;
-                i = index;
+                matched_centroid = Some((index, centroid));
                 break;
             }
-            k += centroid.weight();
+            running_total_weight += centroid.weight();
         }
 
-        if val == c.mean() {
-            let mut weight_at_value = c.weight();
-            for centroid in &self.centroids[i + 1..] {
-                if centroid.mean() == c.mean() {
-                    weight_at_value += centroid.weight();
-                } else {
-                    break;
+        match matched_centroid {
+            Some((centroid_index, current_centroid)) => {
+                if val == current_centroid.mean() {
+                    let mut weight_at_value = current_centroid.weight();
+                    for centroid in &self.centroids[centroid_index + 1..] {
+                        if centroid.mean() == current_centroid.mean() {
+                            weight_at_value += centroid.weight();
+                        } else {
+                            break;
+                        }
+                    }
+                    return (running_total_weight + (weight_at_value / 2.0)) / self.count();
+                } else if centroid_index == 0 {
+                    return 0.0;
                 }
+
+                let cr = current_centroid;
+                let cl = &self.centroids[centroid_index - 1];
+                running_total_weight -= cl.weight() / 2.0;
+
+                let m = (cr.mean() - cl.mean()) / (cl.weight() / 2.0 + cr.weight() / 2.0);
+                let x = (val - cl.mean()) / m;
+                (running_total_weight + x) / self.count()
             }
-            return (k + (weight_at_value / 2.0)) / self.count();
-        } else if val > c.mean() {
-            return 1.0;
-        } else if i == 0 {
-            return 0.0;
-        }
-
-        let cr = c;
-        let cl = &self.centroids[i - 1];
-        k -= cl.weight() / 2.0;
-
-        let m = (cr.mean() - cl.mean()) / (cl.weight() / 2.0 + cr.weight() / 2.0);
-        let x = (val - cl.mean()) / m;
-        (k + x) / self.count()
-    }
-}
-
-impl Default for TDigest {
-    fn default() -> Self {
-        TDigest {
-            centroids: Vec::new(),
-            max_size: 100,
-            sum: OrderedFloat::from(0.0),
-            count: OrderedFloat::from(0.0),
-            max: OrderedFloat::from(f64::NAN),
-            min: OrderedFloat::from(f64::NAN),
-        }
-    }
-}
-
-impl TDigest {
-    fn k_to_q(k: f64, d: f64) -> f64 {
-        let k_div_d = k / d;
-        if k_div_d >= 0.5 {
-            let base = 1.0 - k_div_d;
-            1.0 - 2.0 * base * base
-        } else {
-            2.0 * k_div_d * k_div_d
-        }
-    }
-
-    fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
-        if v > hi {
-            hi
-        } else if v < lo {
-            lo
-        } else {
-            v
+            None => 1.0, // No centroid matched the condition, meaning `val` is greater than all centroids
         }
     }
 
@@ -824,6 +823,19 @@ mod tests {
             "CDF(5.0) deviates from 0.9"
         );
         assert_eq!(t.estimate_cdf(0.0), 0.0, "CDF(0.0) should be 0.0");
+        assert_eq!(t.estimate_cdf(6.0), 1.0, "CDF(6.0) should be 1.0");
+    }
+
+    #[test]
+    fn test_cdf_out_of_bounds() {
+        let t = TDigest::new_with_size(100);
+        let values: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let t = t.merge_sorted(values);
+
+        // Test when the value is less than the minimum element
+        assert_eq!(t.estimate_cdf(0.0), 0.0, "CDF(0.0) should be 0.0");
+
+        // Test when the value is greater than the maximum element
         assert_eq!(t.estimate_cdf(6.0), 1.0, "CDF(6.0) should be 1.0");
     }
 }
