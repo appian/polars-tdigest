@@ -72,7 +72,6 @@ impl Default for Centroid {
     }
 }
 
-
 /// T-Digest to be operated on.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TDigest {
@@ -96,7 +95,6 @@ impl Default for TDigest {
         }
     }
 }
-
 
 impl TDigest {
     fn k_to_q(k: f64, d: f64) -> f64 {
