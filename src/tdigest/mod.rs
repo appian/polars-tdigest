@@ -72,6 +72,18 @@ impl Default for Centroid {
     }
 }
 
+
+/// T-Digest to be operated on.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct TDigest {
+    centroids: Vec<Centroid>,
+    max_size: usize,
+    sum: OrderedFloat<f64>,
+    count: OrderedFloat<f64>,
+    max: OrderedFloat<f64>,
+    min: OrderedFloat<f64>,
+}
+
 impl Default for TDigest {
     fn default() -> Self {
         TDigest {
@@ -85,16 +97,6 @@ impl Default for TDigest {
     }
 }
 
-/// T-Digest to be operated on.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct TDigest {
-    centroids: Vec<Centroid>,
-    max_size: usize,
-    sum: OrderedFloat<f64>,
-    count: OrderedFloat<f64>,
-    max: OrderedFloat<f64>,
-    min: OrderedFloat<f64>,
-}
 
 impl TDigest {
     fn k_to_q(k: f64, d: f64) -> f64 {
@@ -104,16 +106,6 @@ impl TDigest {
             1.0 - 2.0 * base * base
         } else {
             2.0 * k_div_d * k_div_d
-        }
-    }
-
-    fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
-        if v > hi {
-            hi
-        } else if v < lo {
-            lo
-        } else {
-            v
         }
     }
 
@@ -201,6 +193,16 @@ impl TDigest {
     #[inline]
     pub fn centroids(&self) -> &Vec<Centroid> {
         &self.centroids
+    }
+
+    fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
+        if v > hi {
+            hi
+        } else if v < lo {
+            lo
+        } else {
+            v
+        }
     }
 
     pub fn estimate_cdf(&self, val: f64) -> f64 {
