@@ -26,7 +26,7 @@ struct QuantileKwargs {
 
 #[derive(Debug, Deserialize)]
 struct CDFKwargs {
-    cdf: f64,
+    x: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,7 +134,7 @@ fn estimate_cdf(inputs: &[Series], kwargs: CDFKwargs) -> PolarsResult<Series> {
         let v: &[Option<f64>] = &[None];
         Ok(Series::new("", v))
     } else {
-        let ans = tdigest.estimate_cdf(kwargs.cdf);
+        let ans = tdigest.estimate_cdf(kwargs.x);
         Ok(Series::new("", vec![ans]))
     }
 }

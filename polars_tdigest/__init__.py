@@ -34,14 +34,14 @@ def estimate_quantile(expr: IntoExpr, quantile: float) -> pl.Expr:
         kwargs={"quantile": quantile},
     )
 
-def estimate_cdf(expr: IntoExpr, cdf: float) -> pl.Expr:
+def estimate_cdf(expr: IntoExpr, x: float) -> pl.Expr:
     return register_plugin_function(
         plugin_path=Path(__file__).parent,
         function_name="estimate_cdf",
         args=expr,
         is_elementwise=False,
         returns_scalar=True,
-        kwargs={"cdf": cdf},
+        kwargs={"x": x},
     )
 
 def estimate_median(expr: IntoExpr) -> pl.Expr:
