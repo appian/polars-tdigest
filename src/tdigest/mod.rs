@@ -205,6 +205,8 @@ impl TDigest {
         }
     }
 
+    // See
+    // https://github.com/protivinsky/pytdigest/blob/main/pytdigest/tdigest.c#L300-L336
     pub fn estimate_cdf(&self, val: f64) -> f64 {
         if self.centroids.is_empty() {
             return f64::NAN;
