@@ -83,30 +83,7 @@ pub struct TDigest {
     min: OrderedFloat<f64>,
 }
 
-impl Default for TDigest {
-    fn default() -> Self {
-        TDigest {
-            centroids: Vec::new(),
-            max_size: 100,
-            sum: OrderedFloat::from(0.0),
-            count: OrderedFloat::from(0.0),
-            max: OrderedFloat::from(f64::NAN),
-            min: OrderedFloat::from(f64::NAN),
-        }
-    }
-}
-
 impl TDigest {
-    fn k_to_q(k: f64, d: f64) -> f64 {
-        let k_div_d = k / d;
-        if k_div_d >= 0.5 {
-            let base = 1.0 - k_div_d;
-            1.0 - 2.0 * base * base
-        } else {
-            2.0 * k_div_d * k_div_d
-        }
-    }
-
     pub fn new_with_size(max_size: usize) -> Self {
         TDigest {
             centroids: Vec::new(),
@@ -191,6 +168,31 @@ impl TDigest {
     #[inline]
     pub fn centroids(&self) -> &Vec<Centroid> {
         &self.centroids
+    }
+}
+
+impl Default for TDigest {
+    fn default() -> Self {
+        TDigest {
+            centroids: Vec::new(),
+            max_size: 100,
+            sum: OrderedFloat::from(0.0),
+            count: OrderedFloat::from(0.0),
+            max: OrderedFloat::from(f64::NAN),
+            min: OrderedFloat::from(f64::NAN),
+        }
+    }
+}
+
+impl TDigest {
+    fn k_to_q(k: f64, d: f64) -> f64 {
+        let k_div_d = k / d;
+        if k_div_d >= 0.5 {
+            let base = 1.0 - k_div_d;
+            1.0 - 2.0 * base * base
+        } else {
+            2.0 * k_div_d * k_div_d
+        }
     }
 
     fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
