@@ -2,7 +2,7 @@
 
 This Polars plugin is a wrapper around the [T-Digest Rust implementation](https://docs.rs/tdigest/latest/tdigest/). It not only provides means to compute an estimated qunatile, but exposes the tdigest creation and merging functionality so it can be used to estimate quantiles in a distributed environment.
 
-For an example see the [Yellow Taxi Notebook](./tdigest_yellow_taxi.ipynb). Note that this example is a bit artifical as it doesn't distribute the computation. It is mainly meant to show how to use the plugin with multiple partitions of a dataset. It does not make sense to use this plugin for computations on a single machine as the tdigest computation essentially adds overhead to the percentile computation and is therefore slower than computing the actual percentile.
+For an example see the [Yellow Taxi Notebook](https://github.com/appian/polars-tdigest/blob/main/tdigest_yellow_taxi.ipynb). Note that this example is a bit artifical as it doesn't distribute the computation. It is mainly meant to show how to use the plugin with multiple partitions of a dataset. It does not make sense to use this plugin for computations on a single machine as the tdigest computation essentially adds overhead to the percentile computation and is therefore slower than computing the actual percentile.
 
 # How to contribute
 

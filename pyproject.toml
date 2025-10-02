@@ -5,6 +5,9 @@ build-backend = "maturin"
 [project]
 name = "polars-tdigest"
 requires-python = ">=3.8"
+version = "0.1.11"
+description = "T-Digest Polars Plugin for distributed quantile estimation"
+readme = "README.md"
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
