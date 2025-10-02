@@ -20,8 +20,13 @@ static SUPPORTED_TYPES: &[DataType] = &[
 
 // TODO: get rid of serde completely
 #[derive(Debug, Deserialize)]
-struct MergeTDKwargs {
+struct QuantileKwargs {
     quantile: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct CDFKwargs {
+    x: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,13 +116,25 @@ fn merge_tdigests(inputs: &[Series]) -> PolarsResult<Series> {
 
 // TODO this should check the type of the series and also work on series of Type f64
 #[polars_expr(output_type=Float64)]
-fn estimate_quantile(inputs: &[Series], kwargs: MergeTDKwargs) -> PolarsResult<Series> {
+fn estimate_quantile(inputs: &[Series], kwargs: QuantileKwargs) -> PolarsResult<Series> {
     let tdigest = parse_tdigest(inputs);
     if tdigest.is_empty() {
         let v: &[Option<f64>] = &[None];
         Ok(Series::new("", v))
     } else {
         let ans = tdigest.estimate_quantile(kwargs.quantile);
+        Ok(Series::new("", vec![ans]))
+    }
+}
+
+#[polars_expr(output_type=Float64)]
+fn estimate_cdf(inputs: &[Series], kwargs: CDFKwargs) -> PolarsResult<Series> {
+    let tdigest = parse_tdigest(inputs);
+    if tdigest.is_empty() {
+        let v: &[Option<f64>] = &[None];
+        Ok(Series::new("", v))
+    } else {
+        let ans = tdigest.estimate_cdf(kwargs.x);
         Ok(Series::new("", vec![ans]))
     }
 }
@@ -153,6 +170,8 @@ mod tests {
             let series = [Series::new("n", [1, 2, 3]).cast(t).unwrap()];
             let td = tdigest_from_series(&series, 200).unwrap();
             assert!(td.estimate_median() == 2.0);
+            assert!(td.estimate_cdf(2.0) == 0.5);
+            assert!((td.estimate_cdf(2.5) - 0.66666).abs() < 0.0001);
         });
 
         unsupported_types.iter().for_each(|t| {

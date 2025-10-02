@@ -205,6 +205,52 @@ impl TDigest {
         }
     }
 
+    // See
+    // https://github.com/protivinsky/pytdigest/blob/main/pytdigest/tdigest.c#L300-L336
+    pub fn estimate_cdf(&self, val: f64) -> f64 {
+        if self.centroids.is_empty() {
+            return f64::NAN;
+        }
+
+        let mut running_total_weight = 0.0;
+        let mut matched_centroid: Option<(usize, &Centroid)> = None;
+
+        for (index, centroid) in self.centroids.iter().enumerate() {
+            if centroid.mean() >= val {
+                matched_centroid = Some((index, centroid));
+                break;
+            }
+            running_total_weight += centroid.weight();
+        }
+
+        match matched_centroid {
+            Some((centroid_index, current_centroid)) => {
+                if val == current_centroid.mean() {
+                    let mut weight_at_value = current_centroid.weight();
+                    for centroid in &self.centroids[centroid_index + 1..] {
+                        if centroid.mean() == current_centroid.mean() {
+                            weight_at_value += centroid.weight();
+                        } else {
+                            break;
+                        }
+                    }
+                    return (running_total_weight + (weight_at_value / 2.0)) / self.count();
+                } else if centroid_index == 0 {
+                    return 0.0;
+                }
+
+                let cr = current_centroid;
+                let cl = &self.centroids[centroid_index - 1];
+                running_total_weight -= cl.weight() / 2.0;
+
+                let m = (cr.mean() - cl.mean()) / (cl.weight() / 2.0 + cr.weight() / 2.0);
+                let x = (val - cl.mean()) / m;
+                (running_total_weight + x) / self.count()
+            }
+            None => 1.0, // No centroid matched the condition, meaning `val` is greater than all centroids
+        }
+    }
+
     pub fn merge_unsorted(&self, unsorted_values: Vec<f64>) -> TDigest {
         let mut sorted_values: Vec<OrderedFloat<f64>> = unsorted_values
             .into_iter()
@@ -760,5 +806,40 @@ mod tests {
             assert!(t.estimate_median().abs() < 0.01);
         }
         assert!(quantile_didnt_work);
+    }
+
+    #[test]
+    fn test_cdf() {
+        let t = TDigest::new_with_size(100);
+        let values: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let t = t.merge_sorted(values);
+
+        assert!(
+            (t.estimate_cdf(3.0) - 0.5).abs() < 0.0001,
+            "CDF(3.0) deviates from 0.5"
+        );
+        assert!(
+            (t.estimate_cdf(1.0) - 0.1).abs() < 0.0001,
+            "CDF(1.0) deviates from 0.1"
+        );
+        assert!(
+            (t.estimate_cdf(5.0) - 0.9).abs() < 0.0001,
+            "CDF(5.0) deviates from 0.9"
+        );
+        assert_eq!(t.estimate_cdf(0.0), 0.0, "CDF(0.0) should be 0.0");
+        assert_eq!(t.estimate_cdf(6.0), 1.0, "CDF(6.0) should be 1.0");
+    }
+
+    #[test]
+    fn test_cdf_out_of_bounds() {
+        let t = TDigest::new_with_size(100);
+        let values: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let t = t.merge_sorted(values);
+
+        // Test when the value is less than the minimum element
+        assert_eq!(t.estimate_cdf(0.0), 0.0, "CDF(0.0) should be 0.0");
+
+        // Test when the value is greater than the maximum element
+        assert_eq!(t.estimate_cdf(6.0), 1.0, "CDF(6.0) should be 1.0");
     }
 }
