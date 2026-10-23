@@ -87,7 +87,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tdigest_deserializstion() {
+    fn test_tdigest_deserialization() {
         let json_str = "[{\"tdigest\":{\"centroids\":[{\"mean\":4.0,\"weight\":1},{\"mean\":5.0,\"weight\":1},{\"mean\":6.0,\"weight\":1}],\"sum\":15.0,\"min\":4.0,\"max\":6.0,\"count\":3,\"max_size\":100}},{\"tdigest\":{\"centroids\":[{\"mean\":1.0,\"weight\":1},{\"mean\":2.0,\"weight\":1},{\"mean\":3.0,\"weight\":1}],\"sum\":6.0,\"min\":1.0,\"max\":3.0,\"count\":3,\"max_size\":100}}]";
         let cursor = Cursor::new(json_str);
         let df = JsonReader::new(cursor).finish().unwrap();
