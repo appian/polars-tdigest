@@ -60,7 +60,7 @@ fn tdigest_fields() -> Vec<Field> {
 fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
     let mut tdigest = tdigest_from_series(inputs, kwargs.max_size)?;
     if tdigest.is_empty() {
-        // Default value for TDigest contains NaNs that cause problems during serialization/deserailization
+        // Default value for TDigest contains NaNs that cause problems during serialization/deserialization
         tdigest = TDigest::new(Vec::new(), 100.0, 0.0, 0.0, 0.0, 0)
     }
     Ok(tdigest_to_series(tdigest, inputs[0].name()))
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn test_supporting_different_numeric_types() {
         // These types are not supported w/o special compilation flags
-        // The plugin panics if these types are used probably due to magic in #[palars_expr] annotations
+        // The plugin panics if these types are used probably due to magic in #[polars_expr] annotations
         let unsupported_types = [
             DataType::Int16,
             DataType::Int8,

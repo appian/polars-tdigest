@@ -1,7 +1,7 @@
 use polars::prelude::*;
 
 // This function is useful for writing functions which
-// accept pairs of List columns. Delete if unneded.
+// accept pairs of List columns. Delete if unneeded.
 #[allow(dead_code)]
 pub(crate) fn binary_amortized_elementwise<'a, T, K, F>(
     ca: &'a ListChunked,
@@ -25,7 +25,7 @@ where
 }
 
 // This function is useful for writing functions which
-// accept pairs of columns and produce String output. Delete if unneded.
+// accept pairs of columns and produce String output. Delete if unneeded.
 //
 // To use it, you will also need to import the following:
 //
